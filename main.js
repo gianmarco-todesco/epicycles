@@ -18,7 +18,7 @@ let maxTailLength = 1000
 
 let zoom = 1
 
-let rmin = 20
+let rmin = 0
 
 // --------------------------------------------------------
 // variabili
@@ -318,3 +318,11 @@ function drawCurve (crv) {
     for (let i = 1; i < n; i++) ctx.lineTo(crv[i][0], crv[i][1])
     ctx.stroke()
 }
+
+strokeStart()
+for(var i=0; i<100; i++) {
+    const phi = Math.PI*2*i/100;
+    stroke(Math.cos(phi)*150, Math.sin(phi)*100)
+
+}
+strokeEnd()
