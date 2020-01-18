@@ -1,0 +1,19 @@
+canvas {
+    border:solid 1px black;
+    box-shadow: 10px 10px 10px gray;
+    margin-bottom:20px;
+}
+p { 
+    color: gray;
+    padding: 20px;
+    margin-top:0;
+}
+h1 {
+    margin:0 0 0 20px;
+}
+footer {
+    color:gray;
+    font-size:small;
+    font-style:italic;
+
+} 
