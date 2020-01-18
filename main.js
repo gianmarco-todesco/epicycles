@@ -18,7 +18,7 @@ let maxTailLength = 1000
 
 let zoom = 1
 
-let rmin = 4
+let rmin = 20
 
 // --------------------------------------------------------
 // variabili
@@ -73,8 +73,8 @@ let offy = 0
 function onMouseDown (e) {
     // l'utente ha fatto click nel canvas.
     // comincio a seguire globalmente gli eventi di mouse-move e mouse-up
-    document.addEventListener('mousemove', onDrag)
-    document.addEventListener('mouseup', onRelease)
+    document.addEventListener('pointermove', onDrag)
+    document.addEventListener('pointerup', onRelease)
     // mi ricordo la differenza fra coordinate rispetto al canvas (offsetX,offsetY)
     // e rispetto al documento (e.clientX, e.clientY)
     offx = e.offsetX - e.clientX
@@ -92,13 +92,13 @@ function onDrag (e) {
 }
 function onRelease (e) {
     // l'utente ha finito di disegnare. smetto di seguire mouse-move e mouse-up
-    document.removeEventListener('mousemove', onDrag)
-    document.removeEventListener('mouseup', onRelease)
+    document.removeEventListener('pointermove', onDrag)
+    document.removeEventListener('pointerup', onRelease)
     // informo il programma che il disegno è finito
     strokeEnd()
 }
 // tutte le volte che l'utente fa click nel canvas chiamo la funzione onMouseDown
-canvas.addEventListener('mousedown', onMouseDown)
+canvas.addEventListener('pointerdown', onMouseDown)
 
 // l'utente ha cominciato a tracciare una curva
 function strokeStart () {
@@ -126,12 +126,33 @@ function stroke (x, y) {
 // l'utente ha finito di disegnare: calcolo la DFT (se la curva disegnata è abbastanza lunga)
 function strokeEnd () {
     if (targetCrv.length > 10) {
+        var length = computeLength(targetCrv);
+        omega = 20.0 * Math.PI*2 / length; 
         computeDft(targetCrv)
     } else {
         targetCrv = []
     }
     stroking = false
 }
+
+// --------------------------------------------------------
+// --------------------------------------------------------
+function computeLength(crv) {
+    const n = crv.length;
+    if(n < 3) return 0;
+    let s = 0.0;
+    let oldx = crv[n-1][0];
+    let oldy = crv[n-1][1];    
+    for(var i=0; i<n; i++) {
+        let dx = crv[i][0] - oldx;
+        let dy = crv[i][1] - oldy;
+        s += Math.sqrt(dx*dx+dy*dy);   
+        oldx = crv[i][0];
+        oldy = crv[i][1];    
+    }
+    return s;
+}
+
 
 // --------------------------------------------------------
 // Questa funzione calcola la DFT a partire da una lista di
@@ -221,6 +242,7 @@ function computeEpicycles () {
         x += dx
         y += dy
     }
+    circles.push({ x, y, r: 0 })
     addPointToTail(x, y)
     penx = x;
     peny = y;
@@ -239,14 +261,17 @@ function drawEpicycles () {
         const { x, y, r } = circle
         const opacity = 1.0 / (1 + i * 0.025)
         
-        ctx.beginPath()
-        ctx.moveTo(x + r, y)
-        ctx.arc(x, y, r, 0, 2 * Math.PI)
-
-        ctx.fillStyle = 'rgb(240,220,240,' + opacity + ')'
-        ctx.fill();
-        ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
-        ctx.stroke();
+        if(r>0) {
+            ctx.beginPath()
+            ctx.moveTo(x + r, y)
+            ctx.arc(x, y, r, 0, 2 * Math.PI)
+            let green = 220 + 20 * opacity;
+            let blue = 240 - 20 * opacity;
+            ctx.fillStyle = 'rgb(240,' + green + ',' + blue + ',' + opacity + ')'
+            ctx.fill();
+            ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
+            ctx.stroke();    
+        }
 
         ctx.beginPath()
         ctx.moveTo(x + r1, y)
@@ -267,6 +292,7 @@ function drawEpicycles () {
         }
     })
  
+    
 
 
 }
