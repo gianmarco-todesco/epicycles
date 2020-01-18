@@ -320,9 +320,11 @@ function drawCurve (crv) {
 }
 
 strokeStart()
-for(var i=0; i<100; i++) {
-    const phi = Math.PI*2*i/100;
-    stroke(Math.cos(phi)*150, Math.sin(phi)*100)
-
+const n = 1000
+for(let i=0;i<n;i++) {
+    const t = i/(n-1)
+    var phi = 5*Math.PI*2*t
+    var r = 20/(1.0 + 0.9*Math.cos(phi*1.2))
+    stroke(r*Math.cos(phi), r*Math.sin(phi))
 }
 strokeEnd()
