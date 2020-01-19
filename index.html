@@ -12,9 +12,15 @@
         <h1>Epicycles calculator</h1>
         <p>Click & draw with the mouse in the square area below and draw a simple closed curve.</p>
         <p>
-            Speed: <button onclick="changeSpeed(1)">+</button><button onclick="changeSpeed(-1)">-</button>,
-            Zoom: <button onclick="changeZoom(1)">+</button><button onclick="changeZoom(-1)">-</button>,
-            Precision: <button onclick="changePrecision(1)">+</button><button onclick="changePrecision(-1)">-</button onclick="changePrecision(1)"> (100 epycicles)
+            Speed: 
+                <button onclick="changeSpeed(1)">+</button>
+                <button onclick="changeSpeed(-1)">-</button> &nbsp;
+            Zoom: 
+                <button onclick="viewer.zoomin()">+</button>
+                <button onclick="viewer.zoomout()">-</button> &nbsp;
+            Precision: 
+                <button onclick="changePrecision(1)">+</button>
+                <button onclick="changePrecision(-1)">-</button>
             
         </p>
         <canvas width="600" height="600" id="c"></canvas>

@@ -5,6 +5,265 @@
 
 'use strict'
 
+// --------------------------------------------------------
+// Curve
+// --------------------------------------------------------
+class Curve {
+    constructor() {
+        this.points = [];
+    }
+    add(x,y) {
+        // add point if not too close to the last one
+        const points = this.points
+        const n = points.length
+        if(n>0) {
+            const dx = points[n-1][0] - x
+            const dy = points[n-1][1] - y
+            if(dx * dx + dy * dy < 50) return;            
+        }
+        this.points.push([x,y])
+    }
+    get length() {
+        const points = this.points
+        const n = points.length
+        if(n < 2) return 0.0
+        let s = 0.0
+        let oldx = points[n-1][0]
+        let oldy = points[n-1][1]   
+        for(var i=0; i<n; i++) {
+            let dx = points[i][0] - oldx
+            let dy = points[i][1] - oldy
+            s += Math.sqrt(dx*dx+dy*dy)  
+            oldx = points[i][0]
+            oldy = points[i][1]    
+        }
+        return s
+    }
+}
+
+// --------------------------------------------------------
+// EpicycleSystem
+// --------------------------------------------------------
+class EpicycleSystem {
+    constructor() {
+        this.center = { re:0, im:0 }
+        this.items = []
+        this.circles = []
+        this.penx = 0
+        this.peny = 0
+    }
+
+    clear() {
+        this.circles = []
+        this.items = []
+        this.center.re = 0
+        this.center.im = 0
+        this.penx = this.peny = 0
+    }
+
+    computeDft(crv) {
+        this.clear()
+        const pts = crv.points
+        if(pts.length < 10) return
+
+        const n = pts.length
+        const d = Math.floor(n / 2)
+        for (let k = -d; k < -d + n; k++) {
+            const phi = 2 * Math.PI * k / n
+            let re = 0
+            let im = 0
+            for (let j = 0; j < n; j++) {
+                const re1 = pts[j][0]
+                const im1 = pts[j][1]
+                const re2 = Math.cos(phi * j)
+                const im2 = -Math.sin(phi * j)
+                var re3 = re1 * re2 - im1 * im2
+                var im3 = re1 * im2 + re2 * im1
+                re += re3
+                im += im3
+            }
+            re /= n
+            im /= n
+            if (k == 0) {
+                this.center.re = re
+                this.center.im = im
+            } else {
+                const r = Math.sqrt(re * re + im * im)
+                this.items.push({ re, im, k, r })
+            }
+        }
+        this.items.sort((a, b) => b.r - a.r)
+    }
+
+
+    computeCircles(phi, rmin) {
+        const circles = this.circles = []
+        const items = this.items
+        this.penx = this.peny = 0
+        if (items.length == 0) return
+        let x = this.center.re
+        let y = this.center.im
+    
+        const n = items.length + 1 // il +1 deriva da dft.center con k=0
+        for (let i = 0; i < n - 1; i++) {
+            
+            if(items[i].r < rmin) break;
+            // aggiungo il cerchio i-esimo
+            circles.push({ x, y, r: items[i].r })
+            // calcolo le coordinate del centro del cerchio successivo
+            const re1 = items[i].re
+            const im1 = items[i].im
+            const k = items[i].k
+            const re2 = Math.cos(phi * k)
+            const im2 = Math.sin(phi * k)
+            var dx = re1 * re2 - im1 * im2
+            var dy = re1 * im2 + re2 * im1
+            x += dx
+            y += dy
+        }
+        circles.push({ x, y, r: 0 })
+        this.penx = x
+        this.peny = y
+        
+    }
+
+    draw (ctx) {
+        const circles = this.circles
+        if (circles.length == 0) return
+        ctx.lineWidth = ctx.pixelSize * 1
+        ctx.strokeStyle = 'rgb(200,200,200,0.5)'
+        const r1 = 1.5
+    
+        circles.forEach((circle, i) => {
+            const { x, y, r } = circle
+            const opacity = 1.0 / (1 + i * 0.05)
+            
+            if(r>0) {
+                ctx.beginPath()
+                ctx.myCircle(x,y, r)
+                let green = 220 + 20 * opacity;
+                let blue = 240 - 20 * opacity;
+                ctx.fillStyle = 'rgb(240,' + green + ',' + blue + ',' + opacity + ')'
+                ctx.fill();
+                ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
+                
+                ctx.stroke();    
+            }
+    
+            ctx.beginPath()
+            ctx.myCircle(x, y, r*0.05)
+            ctx.fill();
+            ctx.stroke();
+    
+            ctx.fillStyle = 'rgb(50,50,50)'
+            ctx.fill();
+    
+            if (i > 0) {
+                ctx.beginPath();
+                ctx.moveTo(x, y)
+                ctx.lineTo(circles[i-1].x, circles[i-1].y)
+                ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
+                ctx.stroke();
+            }
+        })   
+    }
+}
+
+// --------------------------------------------------------
+// Viewer class:
+//    main animation loop; zoom & pan; basic drawing functions
+// --------------------------------------------------------
+
+class Viewer {
+    constructor(canvas) {
+        this.canvas = canvas
+        const ctx = this.ctx = canvas.getContext('2d')
+        this.zoom = 0
+        this.zoomTarget = 0
+        this.zoomCenter = [0,0]
+        this.zoomScale = 1
+        ctx.pixelSize = 1
+        this.pany = 0
+        this.time = performance.now()
+        this.draw = function() {}
+        ctx.myCircle = (x,y,r) => { ctx.moveTo(x+r,y,r); ctx.arc(x,y,r,0,Math.PI*2)}
+    }
+
+    repaint() {
+        const canvas = this.canvas
+        const width = this.width = canvas.width = canvas.clientWidth
+        const height = this.height = canvas.height = canvas.clientHeight
+        const ctx = this.ctx
+        // clear
+        ctx.clearRect(0,0,width,height)
+        // set origin at the canvas center
+        ctx.save()
+        ctx.translate(width/2, height/2)
+        if(this.zoom>0) {
+            const sc = this.zoomScale
+            ctx.scale(sc,sc)
+            const t = (1 - Math.cos(Math.min(Math.PI, this.zoom)))*0.5
+            ctx.translate(-this.zoomCenter[0] * t, -this.zoomCenter[1] * t)
+        }
+        // draw
+        this.draw(ctx)
+        ctx.restore()        
+    }
+
+    animate() {
+        // compute time and dtime
+        const time = performance.now()
+        const dtime = this.dtime = time - this.time
+        this.time = time         
+        this.updateZoom()
+    }
+
+    _setZoom(zoom) {
+        this.zoom = zoom
+        this.zoomScale = Math.exp(this.zoom*0.5)
+        this.ctx.pixelSize = 1.0/this.zoomScale
+    }
+
+    updateZoom() {
+        const dtime = this.dtime
+        const zoomSpeed = 0.001
+        let zoom = this.zoom
+        let target = this.zoomTarget
+        if(zoom<target) this._setZoom(Math.min(target, zoom + zoomSpeed*dtime)) 
+        else if(zoom > target) this._setZoom(Math.max(target, zoom - zoomSpeed*dtime))
+
+    }
+
+    startMainLoop() {
+        const me = this
+        function mainLoop() {
+            me.animate()           
+            me.repaint()
+            requestAnimationFrame(mainLoop)
+        }
+        mainLoop()
+    }
+
+    zoomin() {
+        this.zoomTarget = this.zoomTarget + 1
+    }
+    zoomout() {
+        this.zoomTarget = Math.max(0, this.zoomTarget - 1)
+
+    }
+    resetPanAndZoom() {
+        this.zoom = this.targetZoom = 0
+        this._setZoom(0)
+        this.zoomCenter = [0,0]
+
+    }
+    
+    setZoomCenter(x,y) {
+        const k = 0.1
+        this.zoomCenter[0] = this.zoomCenter[0] * k + x * (1-k)
+        this.zoomCenter[1] = this.zoomCenter[1] * k + y * (1-k)
+    }
+}
 
 // --------------------------------------------------------
 // parametri
@@ -14,56 +273,29 @@
 let omega = 0.1
 
 let maxTailLength = 1000
-
-let zoom = 1
-
 let rmin = 0
-
-let panx = 0
-let pany = 0
 
 // --------------------------------------------------------
 // variabili
 // --------------------------------------------------------
 
 // traccia lasciata dal punto blu
-let tail = []
+let tail = new Curve()
 
 // curva disegnata dall'utente
-let targetCrv = []
+let targetCrv = new Curve()
 
 // modalita': se stroking vale true allora l'utente sta disegnando
 let stroking = false
 
-// dft = Discrete Fourier Transform
-const dft = {
-    center: {},
-    items: []
-}
+const viewer = new Viewer(document.getElementById('c'))
+let canvas = viewer.canvas
+viewer.startMainLoop()
 
-// centro e raggio dei vari epicicli
-let circles = []
-
-let penx, peny;
-
-const canvas = document.getElementById('c')
-const ctx = canvas.getContext('2d')
-let width, height
+const es = new EpicycleSystem()
 
 const pi2 = Math.PI*2
 
-// ciclo principale: cancella il canvas e disegna il nuovo fotogramma
-function mainLoop () {
-    width = canvas.width
-    height = canvas.height
-    ctx.clearRect(0,0,width,height)
-    ctx.save()
-    ctx.translate(width/2, height/2)
-    draw()
-    ctx.restore()
-    requestAnimationFrame(mainLoop)
-}
-requestAnimationFrame(mainLoop)
 
 
 // --------------------------------------------------------
@@ -129,7 +361,6 @@ function onTouchMove(e) {
     }
 }
 
-
 canvas.addEventListener("touchstart", onTouchStart, false, {passive: false})
 canvas.addEventListener("touchend", onTouchEnd, false)
 canvas.addEventListener("touchcancel", onTouchCancel, false)
@@ -143,129 +374,78 @@ canvas.addEventListener("click", ()=>{})
 // l'utente ha cominciato a tracciare una curva
 function strokeStart () {
     // cancello le curve precedenti
-    tail = []
-    targetCrv = []
-    dft.center = {}
-    dft.items = []
+    tail = new Curve()
+    targetCrv = new Curve()
+    es.clear()
     // cambio lo stato del programa
     stroking = true
-    zoom = 1
-    panx = 0
-    pany = 0
+    viewer.resetPanAndZoom()
 }
+
 // l'utente ha disegnato un pezzetto di curva
 function stroke (x, y) {
     // aggiungo il punto (x,y) a targetCrv solo se non è troppo vicino all'ultimo
     // punto disegnato
-    const m = targetCrv.length
-    if (m > 0) {
-        const lastPoint = targetCrv[m - 1]
-        const dx = lastPoint[0] - x
-        const dy = lastPoint[1] - y
-        if (dx * dx + dy * dy < 50) return
-    }
-    targetCrv.push([x, y])
+    targetCrv.add(x,y)
 }
 // l'utente ha finito di disegnare: calcolo la DFT (se la curva disegnata è abbastanza lunga)
 function strokeEnd () {
-    if (targetCrv.length > 10) {
-        var length = computeLength(targetCrv);
+    if (targetCrv.points.length > 10) {
+        const length = targetCrv.length
         omega = 20.0 * Math.PI*2 / length; 
-        computeDft(targetCrv)
+        es.computeDft(targetCrv)
+
     } else {
         targetCrv = []
     }
     stroking = false
 }
 
-function changeZoom(d) {
-    if(d>0) {
-        zoom += d
-    } else {
-        zoom += d
-        if(zoom<=1) { zoom = 1; panx = pany = 0 }
-    }
+let phi = 0
+// let rmin = 0
+
+// --------------------------------------------------------
+
+function changeSpeed(d) {
+    omega += 0.01 * d
 }
 
-
-// --------------------------------------------------------
-// --------------------------------------------------------
-function computeLength(crv) {
-    const n = crv.length;
-    if(n < 3) return 0;
-    let s = 0.0;
-    let oldx = crv[n-1][0];
-    let oldy = crv[n-1][1];    
-    for(var i=0; i<n; i++) {
-        let dx = crv[i][0] - oldx;
-        let dy = crv[i][1] - oldy;
-        s += Math.sqrt(dx*dx+dy*dy);   
-        oldx = crv[i][0];
-        oldy = crv[i][1];    
-    }
-    return s;
+function changePrecision(d) {
+    rmin = Math.max(0, rmin + d * 5)
 }
 
-
-// --------------------------------------------------------
-// Questa funzione calcola la DFT a partire da una lista di
-// punti (x,y)
-// --------------------------------------------------------
-function computeDft (crv) {
-    const n = crv.length
-    const d = Math.floor(n / 2)
-    dft.items = []
-    for (let k = -d; k < -d + n; k++) {
-        const phi = 2 * Math.PI * k / n
-        let re = 0
-        let im = 0
-        for (let j = 0; j < n; j++) {
-            const re1 = crv[j][0]
-            const im1 = crv[j][1]
-            const re2 = Math.cos(phi * j)
-            const im2 = -Math.sin(phi * j)
-            var re3 = re1 * re2 - im1 * im2
-            var im3 = re1 * im2 + re2 * im1
-            re += re3
-            im += im3
-        }
-        re /= n
-        im /= n
-        if (k == 0) {
-            dft.center = { re, im }
-        } else {
-            dft.items.push({ re, im, k, norm: Math.sqrt(re * re + im * im) })
-        }
-    }
-    dft.items.sort((a, b) => b.norm - a.norm)
-}
-
-// --------------------------------------------------------
-// Funzione principale di disegno
-// --------------------------------------------------------
-function draw () {
-
-    // calcolo e disegno gli epicicli se l'utente non sta disegnando ed è
-    // stata calcolata una DFT
-    if (!stroking && dft.items.length > 0) {
-        computeEpicycles()
-        drawEpicycles()
+viewer.draw = function(ctx) {
+    if(!stroking && es.items.length>0) {
+        phi += this.dtime * 0.001 * omega
+        es.computeCircles(phi, rmin)        
+        this.setZoomCenter(es.penx, es.peny)        
+        es.draw(ctx);
+        tail.points.push([es.penx, es.peny])
     }
 
-    // se è presente disegno la curva inserita dall'utente
-    if (targetCrv.length > 2) {
-        ctx.strokeStyle = 'cyan'
-        ctx.lineWidth = 5
-        drawCurve(targetCrv)
+    if(targetCrv.points.length>=2) {
+        const pts = targetCrv.points
+        ctx.beginPath()
+        ctx.moveTo(pts[0][0], pts[0][1])
+        for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+        ctx.strokeStyle = 'rgb(50,240,250,0.8)'
+        ctx.lineWidth = 5 * ctx.pixelSize
+        ctx.stroke()
     }
 
     // disegno la traccia blu se c'è
-    if (tail.length > 2) {
+    if (tail.points.length > 2) {
+        const pts = tail.points
+        ctx.beginPath()
+        ctx.moveTo(pts[0][0], pts[0][1])
+        for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
         ctx.strokeStyle = 'blue'
-        ctx.lineWidth = 2
-        drawCurve(tail)
+        ctx.lineWidth = 1 * ctx.pixelSize
+        ctx.stroke()
     }
+    
 }
+
 
 // --------------------------------------------------------
 // Calcola la posizione e il raggio degli epicicli
