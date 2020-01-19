@@ -100,6 +100,45 @@ function onRelease (e) {
 // tutte le volte che l'utente fa click nel canvas chiamo la funzione onMouseDown
 canvas.addEventListener('pointerdown', onMouseDown)
 
+
+// --------------------------------------------------------
+// gestione touch
+// --------------------------------------------------------
+let ongoingTouches = [];
+function onTouchStart(e) {
+    e.preventDefault()
+    let touches = e.changedTouches
+    strokeStart()
+}
+function onTouchEnd(e) {
+    e.preventDefault()
+    strokeEnd()
+}
+function onTouchCancel(e) {
+    e.preventDefault()
+    strokeEnd()
+}
+function onTouchMove(e) {
+    e.preventDefault()
+    let touches = e.changedTouches
+    if(touches.length>0) {
+        var x = touches[0].offsetX - canvas.width/2
+        var y = touches[0].offsetY - canvas.height/2
+        stroke(x,y)
+    }
+}
+
+
+canvas.addEventListener("touchstart", handleStart, false);
+canvas.addEventListener("touchend", handleEnd, false);
+canvas.addEventListener("touchcancel", handleCancel, false);
+canvas.addEventListener("touchmove", handleMove, false);
+
+
+// --------------------------------------------------------
+// manage user input (strokeStart(), stroke(), strokeEnd())
+// --------------------------------------------------------
+
 // l'utente ha cominciato a tracciare una curva
 function strokeStart () {
     // cancello le curve precedenti
