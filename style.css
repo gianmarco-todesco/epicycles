@@ -17,5 +17,4 @@ footer {
     font-style:italic;
 
 } 
-body { touch-action : none; }
-canvas { touch-action : none; }
+* { touch-action : none; }
