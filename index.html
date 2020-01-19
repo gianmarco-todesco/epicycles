@@ -8,10 +8,18 @@
         <link rel="stylesheet" type="text/css" href="style.css">
     </head>
     <body>
+        <div class="container">
         <h1>Epicycles calculator</h1>
         <p>Click & draw with the mouse in the square area below and draw a simple closed curve.</p>
+        <p>
+            Speed: <button onclick="changeSpeed(1)">+</button><button onclick="changeSpeed(-1)">-</button>,
+            Zoom: <button onclick="changeZoom(1)">+</button><button onclick="changeZoom(-1)">-</button>,
+            Precision: <button onclick="changePrecision(1)">+</button><button onclick="changePrecision(-1)">-</button onclick="changePrecision(1)"> (100 epycicles)
+            
+        </p>
         <canvas width="600" height="600" id="c"></canvas>
         <footer>Epicycles, &copy; 2020 - Gian Marco Todesco</footer>        
+        </div>
         <script src="main.js"></script>
     </body>
 </html>

@@ -1,5 +1,4 @@
 // gian marco todesco - gianmarco.todesco@gmail.com
-// Lezione "Curve Animate", 15 gennaio 2020
 
 /* eslint-disable prefer-const */
 /* eslint-disable eqeqeq */
@@ -19,6 +18,9 @@ let maxTailLength = 1000
 let zoom = 1
 
 let rmin = 0
+
+let panx = 0
+let pany = 0
 
 // --------------------------------------------------------
 // variabili
@@ -48,6 +50,8 @@ const canvas = document.getElementById('c')
 const ctx = canvas.getContext('2d')
 let width, height
 
+const pi2 = Math.PI*2
+
 // ciclo principale: cancella il canvas e disegna il nuovo fotogramma
 function mainLoop () {
     width = canvas.width
@@ -55,15 +59,12 @@ function mainLoop () {
     ctx.clearRect(0,0,width,height)
     ctx.save()
     ctx.translate(width/2, height/2)
-    if(!stroking && zoom != 1) {
-        ctx.scale(zoom, zoom);
-        ctx.translate(-penx, -peny);
-    }
     draw()
     ctx.restore()
     requestAnimationFrame(mainLoop)
 }
 requestAnimationFrame(mainLoop)
+
 
 // --------------------------------------------------------
 // gestione click&drag del mouse
@@ -129,10 +130,10 @@ function onTouchMove(e) {
 }
 
 
-canvas.addEventListener("touchstart", handleStart, false, {passive: false})
-canvas.addEventListener("touchend", handleEnd, false)
-canvas.addEventListener("touchcancel", handleCancel, false)
-canvas.addEventListener("touchmove", handleMove, false)
+canvas.addEventListener("touchstart", onTouchStart, false, {passive: false})
+canvas.addEventListener("touchend", onTouchEnd, false)
+canvas.addEventListener("touchcancel", onTouchCancel, false)
+canvas.addEventListener("touchmove", onTouchMove, false)
 canvas.addEventListener("click", ()=>{})
 
 // --------------------------------------------------------
@@ -148,6 +149,9 @@ function strokeStart () {
     dft.items = []
     // cambio lo stato del programa
     stroking = true
+    zoom = 1
+    panx = 0
+    pany = 0
 }
 // l'utente ha disegnato un pezzetto di curva
 function stroke (x, y) {
@@ -173,6 +177,16 @@ function strokeEnd () {
     }
     stroking = false
 }
+
+function changeZoom(d) {
+    if(d>0) {
+        zoom += d
+    } else {
+        zoom += d
+        if(zoom<=1) { zoom = 1; panx = pany = 0 }
+    }
+}
+
 
 // --------------------------------------------------------
 // --------------------------------------------------------
@@ -285,7 +299,16 @@ function computeEpicycles () {
     addPointToTail(x, y)
     penx = x;
     peny = y;
+    if(zoom != 1) {
+        panx = -x*zoom
+        pany = -y*zoom
+    }
 }
+
+function changeSpeed(d) {
+    omega += 0.1 * d
+}
+
 
 // --------------------------------------------------------
 // Disegno gli epicicli
@@ -298,12 +321,11 @@ function drawEpicycles () {
 
     circles.forEach((circle, i) => {
         const { x, y, r } = circle
-        const opacity = 1.0 / (1 + i * 0.025)
+        const opacity = 1.0 / (1 + i * 0.05)
         
         if(r>0) {
             ctx.beginPath()
-            ctx.moveTo(x + r, y)
-            ctx.arc(x, y, r, 0, 2 * Math.PI)
+            addCircle([x,y], r)
             let green = 220 + 20 * opacity;
             let blue = 240 - 20 * opacity;
             ctx.fillStyle = 'rgb(240,' + green + ',' + blue + ',' + opacity + ')'
@@ -313,8 +335,7 @@ function drawEpicycles () {
         }
 
         ctx.beginPath()
-        ctx.moveTo(x + r1, y)
-        ctx.arc(x, y, r1, 0, 2 * Math.PI)
+        addCircle([x, y], r*0.01)
         ctx.fill();
         ctx.stroke();
 
@@ -324,21 +345,19 @@ function drawEpicycles () {
 
         if (i > 0) {
             ctx.beginPath();
-            ctx.moveTo(x, y)
-            ctx.lineTo(circles[i-1].x, circles[i-1].y)
+            moveTo([x, y])
+            lineTo([circles[i-1].x, circles[i-1].y])
             ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
             ctx.stroke();
         }
     })
  
+    ctx.beginPath();
+    addCircle([penx,peny],5)
+    ctx.strokeStyle = "red"
+    ctx.stroke()
     
-
-
 }
-
-// --------------------------------------------------------
-// gestione riga blu
-// --------------------------------------------------------
 
 // aggiunge un punto alla traccia
 // se necessario cancella i punti più vecchi
@@ -353,17 +372,23 @@ function drawCurve (crv) {
     var n = crv.length
     if (n < 2) return
     ctx.beginPath()
-    ctx.moveTo(crv[0][0], crv[0][1])
-    for (let i = 1; i < n; i++) ctx.lineTo(crv[i][0], crv[i][1])
+    moveTo(crv[0])
+    for (let i = 1; i < n; i++) lineTo(crv[i])
     ctx.stroke()
 }
 
-strokeStart()
-const n = 1000
-for(let i=0;i<n;i++) {
-    const t = i/(n-1)
-    var phi = 5*Math.PI*2*t
-    var r = 20/(1.0 + 0.9*Math.cos(phi*1.2))
-    stroke(r*Math.cos(phi), r*Math.sin(phi))
-}
-strokeEnd()
+
+
+
+// --------------------------------------------------------
+// drawing function
+// --------------------------------------------------------
+
+function moveTo(p) { ctx.moveTo(panx + zoom*p[0], pany + zoom*p[1]) }
+function lineTo(p) { ctx.lineTo(panx + zoom*p[0], pany + zoom*p[1]) }
+function addCircle(p,r) { 
+    const x = panx + zoom*p[0]
+    const y = pany + zoom*p[1]
+    ctx.moveTo(x+r*zoom,y)
+    ctx.arc(x,y,r*zoom,0,pi2)
+ }
