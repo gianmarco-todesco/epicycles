@@ -254,7 +254,7 @@ class Viewer {
 
     }
     resetPanAndZoom() {
-        this.zoom = this.targetZoom = 0
+        this.zoom = this.zoomTarget = 0
         this._setZoom(0)
         this.zoomCenter = [0,0]
 
@@ -378,6 +378,7 @@ class Application {
         const viewer = this.viewer = new Viewer(canvas)
         const ph = this.pointerHandler = new PointerHandler(canvas)
         this.es = new EpicycleSystem()
+        this.circleCount = 0
         ph.startStroke = () => me.startStroke()
         ph.endStroke = () => me.endStroke()
         ph.stroke = (x,y) => { me.targetCrv.addIfNotTooClose(x,y, 50) }
@@ -395,7 +396,6 @@ class Application {
 
     endStroke() {
         const length = this.targetCrv.pixelLength
-        console.log(length)
         if (length > 10) {            
             this.omega = 50.0 * Math.PI*2 / length; 
             this.es.computeDft(this.targetCrv)   
@@ -435,7 +435,6 @@ class Application {
             es.draw(ctx);
             this.addPointToTail(es.penx, es.peny)
         }
-    
         ctx.strokeStyle = 'rgb(50,240,250,0.8)'
         ctx.lineWidth = 5 * ctx.pixelSize
         this.drawCurve(ctx, this.targetCrv)    
@@ -453,16 +452,30 @@ class Application {
             ctx.fill() 
             ctx.stroke() 
         }
+        this.updateCircleCount()
+
+    }
+    updateCircleCount() {
+        const count = this.es.circles.length
+        if(count != this.circleCount) {
+            this.circleCount = count
+            let text = ""
+            if(count > 1) {
+                text = " : " + (count-1) + (count == 2 ? "circle" : "circles")
+            }
+            const span = document.getElementById('circle-count')
+            span.innerHTML = text
+        }
     }
 
     changeSpeed(d) {
-        this.omega = Math.max(0, this.omega + d * 0.1)
+        this.omega = Math.max(0, this.omega + d * 0.5)
     }
     changePrecision(d) {
         const span = document.getElementById('min-radius')
-        this.rmin = Math.max(0, this.rmin + d*5)
+        this.rmin = Math.max(0, this.rmin + d)
         span.innerHTML = this.rmin
-        this.tail.clear()
+        this.tail.clear()        
     }
 }
 

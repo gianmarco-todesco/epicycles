@@ -6,3 +6,4 @@ This is just plain JavaScript. No libraries or framework. It uses ES6. Possibly 
 
 ## Licence 
 
+See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
