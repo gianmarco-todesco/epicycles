@@ -13,14 +13,14 @@
         <p>Click & draw with the mouse in the square area below and draw a simple closed curve.</p>
         <p>
             Speed: 
-                <button onclick="changeSpeed(1)">+</button>
-                <button onclick="changeSpeed(-1)">-</button> &nbsp;
+                <button onclick="app.changeSpeed(1)">+</button>
+                <button onclick="app.changeSpeed(-1)">-</button> &nbsp;
             Zoom: 
-                <button onclick="viewer.zoomin()">+</button>
-                <button onclick="viewer.zoomout()">-</button> &nbsp;
-            Precision: 
-                <button onclick="changePrecision(1)">+</button>
-                <button onclick="changePrecision(-1)">-</button>
+                <button onclick="app.viewer.zoomin()">+</button>
+                <button onclick="app.viewer.zoomout()">-</button> &nbsp;
+            Min radius: <span id="min-radius">0</span>
+                <button onclick="app.changePrecision(1)">+</button>
+                <button onclick="app.changePrecision(-1)">-</button>
             
         </p>
         <canvas width="600" height="600" id="c"></canvas>

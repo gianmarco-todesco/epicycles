@@ -10,20 +10,21 @@
 // --------------------------------------------------------
 class Curve {
     constructor() {
-        this.points = [];
+        this.points = []
     }
-    add(x,y) {
+    addIfNotTooClose(x,y, minSquaredDistance) {
         // add point if not too close to the last one
         const points = this.points
         const n = points.length
         if(n>0) {
             const dx = points[n-1][0] - x
             const dy = points[n-1][1] - y
-            if(dx * dx + dy * dy < 50) return;            
+            if(dx * dx + dy * dy < minSquaredDistance) return;            
         }
         this.points.push([x,y])
     }
-    get length() {
+    get length() { return this.points.length }
+    get pixelLength() {
         const points = this.points
         const n = points.length
         if(n < 2) return 0.0
@@ -39,6 +40,7 @@ class Curve {
         }
         return s
     }
+    clear() { this.points = [] }
 }
 
 // --------------------------------------------------------
@@ -151,7 +153,7 @@ class EpicycleSystem {
             }
     
             ctx.beginPath()
-            ctx.myCircle(x, y, r*0.05)
+            ctx.myCircle(x, y, Math.min(5, r*0.05))
             ctx.fill();
             ctx.stroke();
     
@@ -206,14 +208,14 @@ class Viewer {
             ctx.translate(-this.zoomCenter[0] * t, -this.zoomCenter[1] * t)
         }
         // draw
-        this.draw(ctx)
+        this.draw(ctx, this.dtime)
         ctx.restore()        
     }
 
     animate() {
         // compute time and dtime
-        const time = performance.now()
-        const dtime = this.dtime = time - this.time
+        const time = performance.now() * 0.001
+        this.dtime = time - this.time
         this.time = time         
         this.updateZoom()
     }
@@ -226,7 +228,7 @@ class Viewer {
 
     updateZoom() {
         const dtime = this.dtime
-        const zoomSpeed = 0.001
+        const zoomSpeed = 3.0
         let zoom = this.zoom
         let target = this.zoomTarget
         if(zoom<target) this._setZoom(Math.min(target, zoom + zoomSpeed*dtime)) 
@@ -245,7 +247,7 @@ class Viewer {
     }
 
     zoomin() {
-        this.zoomTarget = this.zoomTarget + 1
+        this.zoomTarget = Math.min(4, this.zoomTarget + 1)
     }
     zoomout() {
         this.zoomTarget = Math.max(0, this.zoomTarget - 1)
@@ -266,309 +268,202 @@ class Viewer {
 }
 
 // --------------------------------------------------------
-// parametri
+// PointerHandler class:
+//    handle mouse and touch events
 // --------------------------------------------------------
 
-// velocità di rotazione del primo epiciclo
-let omega = 0.1
+class PointerHandler {
 
-let maxTailLength = 1000
-let rmin = 0
+    constructor(canvas) {
+        this.canvas = canvas
+        this.startStroke = function() {}
+        this.stroke = function(x,y) {}
+        this.endStroke = function() {}
+        this.handleMouse()
+        this.handleTouch()
+        canvas.addEventListener("click", ()=>{})
+        this.strokeStarted = false
+    }
 
-// --------------------------------------------------------
-// variabili
-// --------------------------------------------------------
+    notifyStartStroke() {
+        if(!this.strokeStarted) {
+            this.strokeStarted = true
+            this.startStroke()
+        }
+    }
+    notifyStroke(x,y) {
+        if(this.strokeStarted) this.stroke(x,y)
+    }
+    notifyEndStroke() {
+        if(this.strokeStarted) {
+            this.strokeStarted = false
+            this.endStroke()
+        }
+    }
+    
 
-// traccia lasciata dal punto blu
-let tail = new Curve()
+    handleMouse() {
+        const me = this
+        let offx = 0
+        let offy = 0
+        function onMouseDown (e) {
+            e.preventDefault()
+            document.addEventListener('pointermove', onDrag)
+            document.addEventListener('pointerup', onRelease)
+            offx = e.offsetX - e.clientX
+            offy = e.offsetY - e.clientY
+            me.notifyStartStroke()
+        }
+        function onDrag (e) {
+            e.preventDefault()
+            var x = e.clientX + offx - me.canvas.width/2 
+            var y = e.clientY + offy - me.canvas.height/2
+            me.notifyStroke(x, y)
+        }
+        function onRelease (e) {
+            e.preventDefault()
+            document.removeEventListener('pointermove', onDrag)
+            document.removeEventListener('pointerup', onRelease)
+            me.notifyEndStroke()
+        }
+        this.canvas.addEventListener('pointerdown', onMouseDown)        
+    }
 
-// curva disegnata dall'utente
-let targetCrv = new Curve()
-
-// modalita': se stroking vale true allora l'utente sta disegnando
-let stroking = false
-
-const viewer = new Viewer(document.getElementById('c'))
-let canvas = viewer.canvas
-viewer.startMainLoop()
-
-const es = new EpicycleSystem()
-
-const pi2 = Math.PI*2
-
-
-
-// --------------------------------------------------------
-// gestione click&drag del mouse
-// --------------------------------------------------------
-let offx = 0
-let offy = 0
-function onMouseDown (e) {
-    // l'utente ha fatto click nel canvas.
-    // comincio a seguire globalmente gli eventi di mouse-move e mouse-up
-    document.addEventListener('pointermove', onDrag)
-    document.addEventListener('pointerup', onRelease)
-    // mi ricordo la differenza fra coordinate rispetto al canvas (offsetX,offsetY)
-    // e rispetto al documento (e.clientX, e.clientY)
-    offx = e.offsetX - e.clientX
-    offy = e.offsetY - e.clientY
-    // informo il programma che l'utente ha cominciato a disegnare
-    strokeStart()
-}
-function onDrag (e) {
-    // il mouse si è mosso (dopo il click)
-    // calcolo le coordinate del mouse rispetto al centro del canvas
-    var x = e.clientX + offx - canvas.width/2 
-    var y = e.clientY + offy - canvas.height/2
-    // informo il programma che l'utente ha prolungato il disegno fino al punto (x,y)
-    stroke(x, y)
-}
-function onRelease (e) {
-    // l'utente ha finito di disegnare. smetto di seguire mouse-move e mouse-up
-    document.removeEventListener('pointermove', onDrag)
-    document.removeEventListener('pointerup', onRelease)
-    // informo il programma che il disegno è finito
-    strokeEnd()
-}
-// tutte le volte che l'utente fa click nel canvas chiamo la funzione onMouseDown
-canvas.addEventListener('pointerdown', onMouseDown)
-
-
-// --------------------------------------------------------
-// gestione touch
-// --------------------------------------------------------
-let ongoingTouches = [];
-function onTouchStart(e) {
-    e.preventDefault()
-    let touches = e.changedTouches
-    strokeStart()
-}
-function onTouchEnd(e) {
-    e.preventDefault()
-    strokeEnd()
-}
-function onTouchCancel(e) {
-    e.preventDefault()
-    strokeEnd()
-}
-function onTouchMove(e) {
-    e.preventDefault()
-    let touches = e.changedTouches
-    if(touches.length>0) {
-        var x = touches[0].offsetX - canvas.width/2
-        var y = touches[0].offsetY - canvas.height/2
-        stroke(x,y)
+    handleTouch() {
+        const me = this
+        function onTouchStart(e) {
+            e.preventDefault()
+            me.notifyStartStroke()
+        }
+        function onTouchEnd(e) {
+            e.preventDefault()
+            me.notifyEndStroke()
+        }
+        function onTouchCancel(e) {
+            e.preventDefault()
+            me.notifyEndStroke()
+        }
+        function onTouchMove(e) {
+            e.preventDefault()
+            let touches = e.changedTouches
+            if(touches.length>0) {
+                var x = touches[0].offsetX - canvas.width/2
+                var y = touches[0].offsetY - canvas.height/2
+                me.notifyStroke(x,y)
+            }
+        }
+        const canvas = this.canvas
+        canvas.addEventListener("touchstart", onTouchStart, false, {passive: false})
+        canvas.addEventListener("touchend", onTouchEnd, false, {passive: false})
+        canvas.addEventListener("touchcancel", onTouchCancel, false, {passive: false})
+        canvas.addEventListener("touchmove", onTouchMove, false, {passive: false})
+        
     }
 }
 
-canvas.addEventListener("touchstart", onTouchStart, false, {passive: false})
-canvas.addEventListener("touchend", onTouchEnd, false)
-canvas.addEventListener("touchcancel", onTouchCancel, false)
-canvas.addEventListener("touchmove", onTouchMove, false)
-canvas.addEventListener("click", ()=>{})
-
 // --------------------------------------------------------
-// manage user input (strokeStart(), stroke(), strokeEnd())
+// main class
 // --------------------------------------------------------
 
-// l'utente ha cominciato a tracciare una curva
-function strokeStart () {
-    // cancello le curve precedenti
-    tail = new Curve()
-    targetCrv = new Curve()
-    es.clear()
-    // cambio lo stato del programa
-    stroking = true
-    viewer.resetPanAndZoom()
-}
-
-// l'utente ha disegnato un pezzetto di curva
-function stroke (x, y) {
-    // aggiungo il punto (x,y) a targetCrv solo se non è troppo vicino all'ultimo
-    // punto disegnato
-    targetCrv.add(x,y)
-}
-// l'utente ha finito di disegnare: calcolo la DFT (se la curva disegnata è abbastanza lunga)
-function strokeEnd () {
-    if (targetCrv.points.length > 10) {
-        const length = targetCrv.length
-        omega = 20.0 * Math.PI*2 / length; 
-        es.computeDft(targetCrv)
-
-    } else {
-        targetCrv = []
-    }
-    stroking = false
-}
-
-let phi = 0
-// let rmin = 0
-
-// --------------------------------------------------------
-
-function changeSpeed(d) {
-    omega += 0.01 * d
-}
-
-function changePrecision(d) {
-    rmin = Math.max(0, rmin + d * 5)
-}
-
-viewer.draw = function(ctx) {
-    if(!stroking && es.items.length>0) {
-        phi += this.dtime * 0.001 * omega
-        es.computeCircles(phi, rmin)        
-        this.setZoomCenter(es.penx, es.peny)        
-        es.draw(ctx);
-        tail.points.push([es.penx, es.peny])
+class Application {
+    constructor() {
+        const me = this
+        this.phi = 0
+        this.omega = 0.1
+        this.rmin = 0
+        this.tail = new Curve()
+        this.targetCrv = new Curve()
+        this.stroking = false
+        const canvas = document.getElementById('c')
+        const viewer = this.viewer = new Viewer(canvas)
+        const ph = this.pointerHandler = new PointerHandler(canvas)
+        this.es = new EpicycleSystem()
+        ph.startStroke = () => me.startStroke()
+        ph.endStroke = () => me.endStroke()
+        ph.stroke = (x,y) => { me.targetCrv.addIfNotTooClose(x,y, 50) }
+        viewer.draw = (ctx, dtime) => me.draw(ctx, dtime)
+        viewer.startMainLoop()
     }
 
-    if(targetCrv.points.length>=2) {
-        const pts = targetCrv.points
-        ctx.beginPath()
-        ctx.moveTo(pts[0][0], pts[0][1])
-        for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+    startStroke() {
+        this.tail.clear()
+        this.targetCrv.clear()
+        this.es.clear()
+        this.stroking = true
+        this.viewer.resetPanAndZoom()
+    }
+
+    endStroke() {
+        const length = this.targetCrv.pixelLength
+        console.log(length)
+        if (length > 10) {            
+            this.omega = 50.0 * Math.PI*2 / length; 
+            this.es.computeDft(this.targetCrv)   
+            if(this.es.items.length == 0) this.targetCrv.clear()
+            else this.targetCrv.points.push(this.targetCrv.points[0])
+        } else {
+            this.targetCrv.clear()
+        }
+        this.stroking = false
+    }
+
+    drawCurve(ctx, crv) {
+        const pts = crv.points
+        if(pts.length>=2) {
+            ctx.beginPath()    
+            ctx.moveTo(pts[0][0], pts[0][1])
+            for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+            ctx.stroke()
+        }
+    }
+
+    addPointToTail(x,y) {
+        const pts = this.tail.points
+        pts.push([x,y,this.phi])
+        let i = 0
+        while(i<pts.length-1 && this.phi - pts[i][2] > 1.8 * Math.PI) i++
+        pts.splice(0,i)
+    }
+
+    draw(ctx, dtime) {
+        const es = this.es
+        const viewer = this.viewer
+        if(!this.stroking && es.items.length>0) {
+            this.phi += dtime * this.omega * ctx.pixelSize
+            es.computeCircles(this.phi, this.rmin)        
+            viewer.setZoomCenter(es.penx, es.peny)        
+            es.draw(ctx);
+            this.addPointToTail(es.penx, es.peny)
+        }
+    
         ctx.strokeStyle = 'rgb(50,240,250,0.8)'
         ctx.lineWidth = 5 * ctx.pixelSize
-        ctx.stroke()
-    }
-
-    // disegno la traccia blu se c'è
-    if (tail.points.length > 2) {
-        const pts = tail.points
-        ctx.beginPath()
-        ctx.moveTo(pts[0][0], pts[0][1])
-        for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+        this.drawCurve(ctx, this.targetCrv)    
+    
         ctx.strokeStyle = 'blue'
         ctx.lineWidth = 1 * ctx.pixelSize
-        ctx.stroke()
-    }
-    
-}
-
-
-// --------------------------------------------------------
-// Calcola la posizione e il raggio degli epicicli
-// --------------------------------------------------------
-function computeEpicycles () {
-    circles = []
-    if (dft.items.length == 0) return
-    let x = dft.center.re
-    let y = dft.center.im
-
-    // tempo in secondi dall'inizio
-    const time = performance.now() * 0.001
-    var phi = 2 * Math.PI * omega * time
-    const n = dft.items.length + 1 // il +1 deriva da dft.center con k=0
-    for (let i = 0; i < n - 1; i++) {
-        if(dft.items[i].norm < rmin) break;
-        // aggiungo il cerchio i-esimo
-        circles.push({ x, y, r: dft.items[i].norm })
-        // calcolo le coordinate del centro del cerchio successivo
-        const re1 = dft.items[i].re
-        const im1 = dft.items[i].im
-        const k = dft.items[i].k
-        const re2 = Math.cos(phi * k)
-        const im2 = Math.sin(phi * k)
-        var dx = re1 * re2 - im1 * im2
-        var dy = re1 * im2 + re2 * im1
-        x += dx
-        y += dy
-    }
-    circles.push({ x, y, r: 0 })
-    addPointToTail(x, y)
-    penx = x;
-    peny = y;
-    if(zoom != 1) {
-        panx = -x*zoom
-        pany = -y*zoom
-    }
-}
-
-function changeSpeed(d) {
-    omega += 0.1 * d
-}
-
-
-// --------------------------------------------------------
-// Disegno gli epicicli
-// --------------------------------------------------------
-function drawEpicycles () {
-    if (circles.length == 0) return
-    ctx.lineWidth = 1
-    ctx.strokeStyle = 'rgb(200,200,200,0.5)'
-    const r1 = 1.5
-
-    circles.forEach((circle, i) => {
-        const { x, y, r } = circle
-        const opacity = 1.0 / (1 + i * 0.05)
+        this.drawCurve(ctx, this.tail)   
         
-        if(r>0) {
+        if(this.es.circles.length>0) {
+            const r = 3 * ctx.pixelSize
+            ctx.strokeStyle ='black'
+            ctx.fillStyle = 'blue'
             ctx.beginPath()
-            addCircle([x,y], r)
-            let green = 220 + 20 * opacity;
-            let blue = 240 - 20 * opacity;
-            ctx.fillStyle = 'rgb(240,' + green + ',' + blue + ',' + opacity + ')'
-            ctx.fill();
-            ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
-            ctx.stroke();    
+            ctx.myCircle(es.penx, es.peny, r)
+            ctx.fill() 
+            ctx.stroke() 
         }
+    }
 
-        ctx.beginPath()
-        addCircle([x, y], r*0.01)
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = 'rgb(50,50,50)'
-        ctx.fill();
-
-
-        if (i > 0) {
-            ctx.beginPath();
-            moveTo([x, y])
-            lineTo([circles[i-1].x, circles[i-1].y])
-            ctx.strokeStyle = 'rgb(20,20,20,' + opacity + ')'
-            ctx.stroke();
-        }
-    })
- 
-    ctx.beginPath();
-    addCircle([penx,peny],5)
-    ctx.strokeStyle = "red"
-    ctx.stroke()
-    
-}
-
-// aggiunge un punto alla traccia
-// se necessario cancella i punti più vecchi
-function addPointToTail (x, y) {
-    tail.push([x, y])
-    if (tail.length > maxTailLength) {
-        tail.splice(0, tail.length - maxTailLength)
+    changeSpeed(d) {
+        this.omega = Math.max(0, this.omega + d * 0.1)
+    }
+    changePrecision(d) {
+        const span = document.getElementById('min-radius')
+        this.rmin = Math.max(0, this.rmin + d*5)
+        span.innerHTML = this.rmin
+        this.tail.clear()
     }
 }
-// disegno una curva
-function drawCurve (crv) {
-    var n = crv.length
-    if (n < 2) return
-    ctx.beginPath()
-    moveTo(crv[0])
-    for (let i = 1; i < n; i++) lineTo(crv[i])
-    ctx.stroke()
-}
 
-
-
-
-// --------------------------------------------------------
-// drawing function
-// --------------------------------------------------------
-
-function moveTo(p) { ctx.moveTo(panx + zoom*p[0], pany + zoom*p[1]) }
-function lineTo(p) { ctx.lineTo(panx + zoom*p[0], pany + zoom*p[1]) }
-function addCircle(p,r) { 
-    const x = panx + zoom*p[0]
-    const y = pany + zoom*p[1]
-    ctx.moveTo(x+r*zoom,y)
-    ctx.arc(x,y,r*zoom,0,pi2)
- }
+const app = new Application()
