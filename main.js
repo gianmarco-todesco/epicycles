@@ -396,6 +396,9 @@ class Application {
 
     endStroke() {
         const length = this.targetCrv.pixelLength
+
+        if(location.search == "?test") document.getElementById('console').innerHTML = length
+
         if (length > 10) {            
             this.omega = 50.0 * Math.PI*2 / length; 
             this.es.computeDft(this.targetCrv)   
