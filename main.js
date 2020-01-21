@@ -397,7 +397,8 @@ class Application {
     endStroke() {
         const length = this.targetCrv.pixelLength
 
-        if(location.search == "?test") document.getElementById('console').innerHTML = length
+        if(location.search == "?test") document.getElementById('console').innerHTML = this.targetCrv.points.length
+        
 
         if (length > 10) {            
             this.omega = 50.0 * Math.PI*2 / length; 
