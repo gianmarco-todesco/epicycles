@@ -319,6 +319,9 @@ class PointerHandler {
             var x = e.clientX + offx - me.canvas.width/2 
             var y = e.clientY + offy - me.canvas.height/2
             me.notifyStroke(x, y)
+            if(location.search == "?test") 
+            document.getElementById('console').innerHTML = "drag:" + x+","+y
+
         }
         function onRelease (e) {
             e.preventDefault()
@@ -347,10 +350,10 @@ class PointerHandler {
             e.preventDefault()
             let touches = e.changedTouches
             if(touches.length>0) {
-                if(location.search == "?test") 
-                    document.getElementById('console').innerHTML = touches[0].offsetX
                 var x = touches[0].clientX - me.canvas.width/2
                 var y = touches[0].clientY - me.canvas.height/2
+                if(location.search == "?test") 
+                    document.getElementById('console').innerHTML = "touch:" + x+","+y
                 me.notifyStroke(x,y)
             }
         }
@@ -399,8 +402,9 @@ class Application {
     endStroke() {
         const length = this.targetCrv.pixelLength
 
-        // if(location.search == "?test") 
-        //    document.getElementById('console').innerHTML = this.targetCrv.points.length
+        if(location.search == "?test") 
+            document.getElementById('console').innerHTML = 
+                this.targetCrv.points.length + ", " + length
 
 
         if (length > 10) {            
