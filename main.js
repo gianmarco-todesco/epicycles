@@ -353,8 +353,6 @@ class PointerHandler {
             if(touches.length>0) {
                 var x = touches[0].clientX - me.canvas.width/2
                 var y = touches[0].clientY - me.canvas.height/2
-                if(location.search == "?test") 
-                    document.getElementById('console').innerHTML = "touch:" + x+","+y
                 me.notifyStroke(x,y)
             }
             */
@@ -403,12 +401,6 @@ class Application {
 
     endStroke() {
         const length = this.targetCrv.pixelLength
-
-        if(location.search == "?test") 
-            document.getElementById('console').innerHTML = 
-                this.targetCrv.points.length + ", " + length
-
-
         if (length > 10) {            
             this.omega = 50.0 * Math.PI*2 / length; 
             this.es.computeDft(this.targetCrv)   
