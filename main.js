@@ -349,8 +349,8 @@ class PointerHandler {
             if(touches.length>0) {
                 //if(location.search == "?test") 
                 //    document.getElementById('console').innerHTML = touches[0]
-                var x = touches[0].offsetX - this.canvas.width/2
-                var y = touches[0].offsetY - this.canvas.height/2
+                var x = touches[0].offsetX - me.canvas.width/2
+                var y = touches[0].offsetY - me.canvas.height/2
                 me.notifyStroke(x,y)
             }
         }
