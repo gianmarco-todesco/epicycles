@@ -348,7 +348,7 @@ class PointerHandler {
             let touches = e.changedTouches
             if(touches.length>0) {
                 if(location.search == "?test") 
-                    document.getElementById('console').innerHTML = touches[0]
+                    document.getElementById('console').innerHTML = touches[0].offsetX
                 var x = touches[0].offsetX - me.canvas.width/2
                 var y = touches[0].offsetY - me.canvas.height/2
                 me.notifyStroke(x,y)
