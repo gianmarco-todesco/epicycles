@@ -399,8 +399,8 @@ class Application {
     endStroke() {
         const length = this.targetCrv.pixelLength
 
-        if(location.search == "?test") 
-            document.getElementById('console').innerHTML = this.targetCrv.points.length
+        // if(location.search == "?test") 
+        //    document.getElementById('console').innerHTML = this.targetCrv.points.length
 
 
         if (length > 10) {            
