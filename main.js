@@ -347,6 +347,7 @@ class PointerHandler {
             me.notifyEndStroke()
         }
         function onTouchMove(e) {
+            /*
             e.preventDefault()
             let touches = e.changedTouches
             if(touches.length>0) {
@@ -356,6 +357,7 @@ class PointerHandler {
                     document.getElementById('console').innerHTML = "touch:" + x+","+y
                 me.notifyStroke(x,y)
             }
+            */
         }
         const canvas = this.canvas
         canvas.addEventListener("touchstart", onTouchStart, false, {passive: false})
