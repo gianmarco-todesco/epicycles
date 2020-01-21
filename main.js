@@ -347,8 +347,10 @@ class PointerHandler {
             e.preventDefault()
             let touches = e.changedTouches
             if(touches.length>0) {
-                var x = touches[0].offsetX - canvas.width/2
-                var y = touches[0].offsetY - canvas.height/2
+                //if(location.search == "?test") 
+                //    document.getElementById('console').innerHTML = touches[0]
+                var x = touches[0].offsetX - this.canvas.width/2
+                var y = touches[0].offsetY - this.canvas.height/2
                 me.notifyStroke(x,y)
             }
         }
@@ -397,8 +399,9 @@ class Application {
     endStroke() {
         const length = this.targetCrv.pixelLength
 
-        if(location.search == "?test") document.getElementById('console').innerHTML = this.targetCrv.points.length
-        
+        if(location.search == "?test") 
+            document.getElementById('console').innerHTML = this.targetCrv.points.length
+
 
         if (length > 10) {            
             this.omega = 50.0 * Math.PI*2 / length; 
